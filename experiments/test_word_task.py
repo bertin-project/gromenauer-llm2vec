@@ -160,6 +160,11 @@ if __name__ == "__main__":
         type=str,
         choices=["next_token", "same_token"],
     )
+    parser.add_argument(
+        "--device",
+        default="cuda",
+        type=str,
+    )
     parser.add_argument("--dataset_name", default=None, type=str)
     parser.add_argument(
         "--task", default=None, type=str, choices=["pos_tags", "chunk_tags", "ner_tags"]
@@ -273,7 +278,8 @@ if __name__ == "__main__":
             f"{args.model_class} is not implemented. Only auto and custom model_class options are valid."
         )
 
-    model = model.cuda()
+    print(f"Loading model into device '{args.device}'")
+    model = model.to(args.device)
 
     raw_datasets = load_dataset(args.dataset_name, split="test")
 
@@ -380,13 +386,35 @@ if __name__ == "__main__":
             else:
                 predictions = torch.concatenate((predictions, preds))
                 labels = torch.concatenate((labels, labs))
-
-    precision_metric = evaluate.load("precision")
-    metrics = precision_metric.compute(
-        references=labels[labels != -100],
-        predictions=predictions[labels != -100],
-        average="micro",
-    )
+    id2label = {
+        i: lab
+        for (lab, i) in LABELS[args.dataset_name][args.task].items()
+    }
+    # Remove ignored index (special tokens)
+    y_pred = predictions.cpu().numpy()
+    y_true = labels.cpu().numpy()
+    true_predictions = [
+        [id2label[p] for (p, l) in zip(pred, gold_label) if l != -100]
+        for pred, gold_label in zip(y_pred, y_true)
+    ]
+    true_labels = [
+        [id2label[l] for (p, l) in zip(pred, gold_label) if l != -100]
+        for pred, gold_label in zip(y_pred, y_true)
+    ]
+    # precision_metric = evaluate.load("precision")
+    # metrics = precision_metric.compute(
+    #     references=true_labels,
+    #     predictions=true_predictions,
+    #     average="micro",
+    # )
+    seqeval = evaluate.load("seqeval")
+    results = seqeval.compute(predictions=true_predictions, references=true_labels, scheme='IOB2')
+    metrics = {
+        "precision": results["overall_precision"],
+        "recall": results["overall_recall"],
+        "f1": results["overall_f1"],
+        "accuracy": results["overall_accuracy"],
+    }
 
     with open(os.path.join(args.output_dir, "result_summary.json"), "w") as f:
         json.dump(metrics, f)

@@ -619,6 +619,7 @@ def main():
             cache_dir=model_args.cache_dir,
             token=model_args.token,
             streaming=data_args.streaming,
+            trust_remote_code=True,
         )
         if "validation" not in raw_datasets.keys():
             raw_datasets["validation"] = load_dataset(
@@ -628,6 +629,7 @@ def main():
                 cache_dir=model_args.cache_dir,
                 token=model_args.token,
                 streaming=data_args.streaming,
+                trust_remote_code=True,
             )
             raw_datasets["train"] = load_dataset(
                 data_args.dataset_name,
@@ -636,6 +638,7 @@ def main():
                 cache_dir=model_args.cache_dir,
                 token=model_args.token,
                 streaming=data_args.streaming,
+                trust_remote_code=True,
             )
     else:
         data_files = {}
@@ -652,6 +655,7 @@ def main():
             data_files=data_files,
             cache_dir=model_args.cache_dir,
             token=model_args.token,
+            trust_remote_code=True,
         )
 
         # If no validation data is there, validation_split_percentage will be used to divide the dataset.
@@ -662,6 +666,7 @@ def main():
                 split=f"train[:{data_args.validation_split_percentage}%]",
                 cache_dir=model_args.cache_dir,
                 token=model_args.token,
+                trust_remote_code=True,
             )
             raw_datasets["train"] = load_dataset(
                 extension,
@@ -669,6 +674,7 @@ def main():
                 split=f"train[{data_args.validation_split_percentage}%:]",
                 cache_dir=model_args.cache_dir,
                 token=model_args.token,
+                trust_remote_code=True,
             )
 
     assert (
@@ -887,6 +893,7 @@ def main():
             "accuracy": results["overall_accuracy"],
         }
 
+    training_args.per_device_train_batch_size = 16
     trainer = MyTrainer(
         model=model,
         args=training_args,
